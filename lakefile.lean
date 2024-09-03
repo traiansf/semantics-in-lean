@@ -1,14 +1,14 @@
 import Lake
 open Lake DSL
 
-package «semantics-in-lean» {
-  -- add any package configuration options here
-}
+package "SemanticsInLean" where
+  -- add package configuration options here
 
-require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git"
+lean_lib «SemanticsInLean» where
+  -- add library configuration options here
+
+require "leanprover-community" / "mathlib"
 
 @[default_target]
-lean_lib «SemanticsInLean» {
-  -- add any library configuration options here
-}
+lean_exe "semanticsinlean" where
+  root := `Main
