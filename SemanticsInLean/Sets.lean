@@ -41,6 +41,8 @@ instance : HasSubset (Set α) := {
   Subset := Set.subset
 }
 
+def Set.of_list (l : List α) : Set α := { a | a ∈ l}
+
 theorem Set.equiv_elim_left (s₁ s₂ : Set α):
   s₁ ≈ s₂ → s₁ ⊆ s₂ := by
   intro Heqv x Hx
@@ -187,3 +189,92 @@ theorem Moore.has_minimum (A : Set (Set α)):
     intro x Hx
     trivial
   · apply Set.big_inter_sub
+
+structure Rule (α : Type) : Type where
+  mk :: (premise : List α) (conclusion : α)
+
+def Set.rule_closed (s : Set α) (r : Rule α) : Prop :=
+  Set.of_list (r.premise) ⊆ s -> r.conclusion ∈ s
+
+def Set.rule_set_closed (s : Set α) (R : Set (Rule α)) : Prop :=
+  ∀ r ∈ R, Set.rule_closed s r
+
+instance (R : Set (Rule α)) : Moore {s | Set.rule_set_closed s R} := by
+  constructor
+  intro B HB r Hr Hpr A HA
+  simp
+  apply (HB HA _ Hr)
+  intro h Hh
+  have Hh' := (Hpr Hh)
+  apply (Set.big_inter_sub B A HA)
+  assumption
+
+def Set.defined_by_rule_set (R : Set (Rule α)) : Set α :=
+  ⋂ {s | Set.rule_set_closed s R}
+
+def Type.defined_by_rule_set (R : Set (Rule α)) : Type := Σ' a, a ∈ Set.defined_by_rule_set R
+
+theorem Set.defined_by_rule_set.closed (R : Set (Rule α)) :
+  Set.rule_set_closed (Set.defined_by_rule_set R) R := by
+  apply (@Moore.moore _ {s | Set.rule_set_closed s R})
+  intro a Ha; trivial
+
+theorem Set.defined_by_rule_set.ind (R : Set (Rule α)) (P : α -> Prop):
+  Set.rule_set_closed P R -> ∀ a ∈ Set.defined_by_rule_set R, P a := by
+  intro Hc a
+  change (Set.defined_by_rule_set R ⊆ P)
+  clear a
+  apply Set.big_inter_sub
+  assumption
+
+class UniqueReadability (R : Set (Rule α)) : Prop :=
+  unique_readability :
+    ∀ x ∈ Set.defined_by_rule_set R, ∀ r1 ∈ R, ∀ r2 ∈ R,
+    Rule.conclusion r1 = x -> Rule.conclusion r2 = x ->
+    Set.of_list (r1.premise) ⊆ (Set.defined_by_rule_set R) ->
+    Set.of_list (r2.premise) ⊆ (Set.defined_by_rule_set R) ->
+    r1 = r2
+
+theorem unique_readability (R : Set (Rule α)) [UniqueReadability R] :
+  ∀ x ∈ Set.defined_by_rule_set R, ∃ r ∈ R, r.conclusion = x ∧ Set.of_list (r.premise) ⊆ Set.defined_by_rule_set R := by
+  apply Set.defined_by_rule_set.ind
+  intro r Hr Hpr
+  exists r
+  constructor
+  · assumption
+  · constructor
+    · trivial
+    · intro h Hh
+      have Hpr' := Hpr Hh
+      obtain ⟨r', ⟨Hr', ⟨Hconc', Hpr'⟩⟩⟩ := Hpr'
+      subst h
+      apply Set.defined_by_rule_set.closed
+      · trivial
+      · trivial
+
+def List.annotate {P : α -> Prop} (l : List α) (Hl : ∀ x ∈ l, P x) : List (Σ' a, P a) :=
+  match l with
+  | [] => []
+  | a :: l' => ⟨a, by { apply Hl; left } ⟩ ::
+    List.annotate l' (by { intro x Hx; apply Hl; right; assumption })
+
+
+noncomputable def Set.defined_by_rule_set.read {R : Set (Rule α)} [UniqueReadability R]
+  (x: Type.defined_by_rule_set R) : Σ' H : List (Type.defined_by_rule_set R), Rule.mk (List.map (λx => x.fst) H) (x.fst) ∈ R :=
+  let l := List.annotate (Exists.choose (unique_readability R x.fst x.snd)).premise _
+  ⟨l,
+    by { have Heq : Rule.mk (List.map (fun x => x.fst) l) x.fst = Exists.choose (unique_readability R x.fst x.snd)
+
+
+
+
+
+       } ⟩
+
+def RuleSetAggregationFns (R : Set (Rule α)) (β : Type) : Type :=
+  ∀ r ∈ R, List β -> β
+
+def FnDefByRules {R : Set (Rule α)} [UniqueReadability R] (F : RuleSetAggregationFns R β) (f : Type.defined_by_rule_set R -> β) : Prop :=
+  ∀ x : Type.defined_by_rule_set R,
+  let r := Set.defined_by_rule_set.read x
+  f x = F r.fst r.snd (map )
